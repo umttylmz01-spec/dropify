@@ -1,12 +1,10 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 
 export function TopBar() {
-  
-  const supabase = createClient();
-const [email, setEmail] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -46,6 +44,3 @@ const [email, setEmail] = useState<string | null>(null);
     </header>
   );
 }
-
-
-

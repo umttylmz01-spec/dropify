@@ -1,29 +1,59 @@
-﻿"use client";
-
-import { TopBar } from "@/components/TopBar";
+﻿import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 
 export default function NewProjectPage() {
-  return (
-    <>
-      <TopBar />
-      <main style={{ padding: 24, maxWidth: 820 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700 }}>/new</h1>
-        <p style={{ marginTop: 8 }}>
-          Template picker + questionnaire (stub). Sonraki adım: spec dosyalarını üretip /project/[id]'ye yazacağız.
-        </p>
+  async function createProject(formData: FormData) {
+    "use server";
 
-        <div style={{ marginTop: 16, padding: 16, border: "1px solid #ddd", borderRadius: 12 }}>
-          <p style={{ fontWeight: 600 }}>Template</p>
-          <ul style={{ marginTop: 8, lineHeight: 1.8 }}>
-            <li>• Landing + Auth</li>
-            <li>• E-commerce starter</li>
-            <li>• Booking / Calendar</li>
-          </ul>
-          <button style={{ marginTop: 12, border: "1px solid #333", padding: "8px 12px" }}>
-            Create (stub)
-          </button>
-        </div>
-      </main>
-    </>
+    const name = String(formData.get("name") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+
+    if (!name) return;
+
+    const supabase = await createClient();
+
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !user) redirect("/login");
+
+    const { data, error } = await supabase
+      .from("projects")
+      .insert({
+        owner_id: user.id,
+        name,
+        description: description || null,
+        config: {},
+      })
+      .select("id")
+      .single();
+
+    if (error || !data?.id) {
+      redirect(`/support?err=${encodeURIComponent(error?.message || "Insert failed")}`);
+    }
+
+    redirect(`/project/${data.id}`);
+  }
+
+  return (
+    <main style={{ padding: 24 }}>
+      <h1>New Project</h1>
+
+      <form action={createProject} style={{ display: "grid", gap: 12, maxWidth: 520 }}>
+        <label>
+          Name
+          <input name="name" placeholder="My first Dropify app" style={{ width: "100%", padding: 8 }} />
+        </label>
+
+        <label>
+          Description
+          <textarea name="description" placeholder="Optional" style={{ width: "100%", padding: 8, minHeight: 96 }} />
+        </label>
+
+        <button type="submit" style={{ padding: 10 }}>
+          Create
+        </button>
+      </form>
+    </main>
   );
 }
+
+
