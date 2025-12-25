@@ -1,12 +1,15 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export function TopBar() {
-  
   const supabase = createClient();
-const [email, setEmail] = useState<string | null>(null);
+  const router = useRouter();
+  const [email, setEmail] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -17,35 +20,43 @@ const [email, setEmail] = useState<string | null>(null);
       setEmail(session?.user?.email ?? null);
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  const logout = async () => {
-    await supabase.auth.signOut();
-  };
+  async function onLogout() {
+    setBusy(true);
+    try {
+      await supabase.auth.signOut();
+      router.push("/login");
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <header style={{ padding: 16, borderBottom: "1px solid #e5e5e5", display: "flex", justifyContent: "space-between" }}>
-      <div style={{ display: "flex", gap: 12 }}>
-        <a href="/" style={{ textDecoration: "underline" }}>Home</a>
-        <a href="/new" style={{ textDecoration: "underline" }}>/new</a>
-        <a href="/project/demo" style={{ textDecoration: "underline" }}>/project/demo</a>
-        <a href="/support" style={{ textDecoration: "underline" }}>/support</a>
-      </div>
+    <header style={{ padding: 12, borderBottom: "1px solid #eee" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <nav style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <Link href="/projects" style={{ textDecoration: "none" }}>Projects</Link>
+          <Link href="/new" style={{ textDecoration: "none" }}>New</Link>
+          <Link href="/debug" style={{ textDecoration: "none" }}>Debug</Link>
+          <Link href="/support" style={{ textDecoration: "none" }}>Support</Link>
+        </nav>
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <span style={{ fontFamily: "monospace", fontSize: 12 }}>
-          {email ? `Session: ${email}` : "Session: (none)"}
-        </span>
-        {email ? (
-          <button onClick={logout} style={{ border: "1px solid #333", padding: "6px 10px" }}>Logout</button>
-        ) : (
-          <a href="/login" style={{ textDecoration: "underline" }}>/login</a>
-        )}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <span style={{ opacity: 0.8 }}>{email ?? "Not signed in"}</span>
+          <button
+            onClick={onLogout}
+            disabled={!email || busy}
+            style={{ padding: "6px 10px", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}
+          >
+            {busy ? "Logging out..." : "Logout"}
+          </button>
+        </div>
       </div>
     </header>
   );
 }
-
-
-
