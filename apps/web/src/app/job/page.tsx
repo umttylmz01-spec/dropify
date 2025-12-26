@@ -47,19 +47,7 @@ const fromWorker = ((job as any).output as any)?.artifact_signed_url;
 if (typeof fromWorker === "string" && fromWorker.length > 0) {
   artifactUrl = fromWorker;
 }
-
-if ((job as any).artifact_bucket && (job as any).artifact_path) {
-  const signed = await supabase.storage
-    .from((job as any).artifact_bucket)
-    .createSignedUrl((job as any).artifact_path, 60 * 10); // 10 minutes
-
-  if (signed.error) {
-    artifactErr = signed.error.message;
-  } else {
-    artifactUrl = signed.data?.signedUrl ?? null;
-  }
-
-
+/* Fallback disabled: use job.output.artifact_signed_url only */
   return (
     <main style={{ maxWidth: 900, margin: "24px auto", padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -105,6 +93,7 @@ if ((job as any).artifact_bucket && (job as any).artifact_path) {
     </main>
   );
 }
+
 
 
 
