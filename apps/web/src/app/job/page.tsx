@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +39,27 @@ export default async function JobPage({ searchParams }: { searchParams: any }) {
   if (error) redirect(`/support?err=${encodeURIComponent(`Job fetch failed: ${error.message}`)}`);
   if (!job) redirect(`/support?err=${encodeURIComponent("Job not found or access denied (RLS).")}`);
 
+ let artifactUrl: string | null = null;
+let artifactErr: string | null = null;
+
+// Prefer worker-provided signed url (service role) if present
+const fromWorker = ((job as any).output as any)?.artifact_signed_url;
+if (typeof fromWorker === "string" && fromWorker.length > 0) {
+  artifactUrl = fromWorker;
+}
+
+if ((job as any).artifact_bucket && (job as any).artifact_path) {
+  const signed = await supabase.storage
+    .from((job as any).artifact_bucket)
+    .createSignedUrl((job as any).artifact_path, 60 * 10); // 10 minutes
+
+  if (signed.error) {
+    artifactErr = signed.error.message;
+  } else {
+    artifactUrl = signed.data?.signedUrl ?? null;
+  }
+
+
   return (
     <main style={{ maxWidth: 900, margin: "24px auto", padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -56,6 +77,11 @@ export default async function JobPage({ searchParams }: { searchParams: any }) {
         <div><b>Status:</b> {job.status}</div>
         <div><b>Created:</b> {job.created_at}</div>
         <div><b>Updated:</b> {job.updated_at}</div>
+        {artifactUrl ? (
+          <div style={{ marginTop: 10 }}>
+            <a href={artifactUrl}>Download artifact (zip)</a>
+          </div>
+        ) : null}
         {job.error ? (
           <div style={{ marginTop: 10, padding: 10, border: "1px solid #f2c2c2", borderRadius: 8, whiteSpace: "pre-wrap" }}>
             <b>Error:</b> {job.error}
@@ -79,3 +105,6 @@ export default async function JobPage({ searchParams }: { searchParams: any }) {
     </main>
   );
 }
+
+
+

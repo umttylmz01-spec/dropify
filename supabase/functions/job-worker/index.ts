@@ -1,5 +1,5 @@
-﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import JSZip from "https://esm.sh/jszip@3.10.1";
 function jsonObjectLength(v: any): number {
   if (!v || typeof v !== "object" || Array.isArray(v)) return 0;
   return Object.keys(v).length;
@@ -58,7 +58,72 @@ function makeExpoRouterPlan(projectId: string, routes: any, model: any) {
     version: "codegen-plan@v1",
   };
 }
+function makeScaffoldFiles(projectId: string) {
+  return [
+    {
+      path: "app/_layout.tsx",
+      content: `import { Stack } from "expo-router";
 
+export default function RootLayout() {
+  return <Stack screenOptions={{ headerShown: true }} />;
+}
+`,
+    },
+    {
+      path: "app/index.tsx",
+      content: `import { View, Text } from "react-native";
+
+export default function Home() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <Text>Dropify scaffold is alive.</Text>
+    </View>
+  );
+}
+`,
+    },
+    {
+      path: "app/(auth)/_layout.tsx",
+      content: `import { Stack } from "expo-router";
+
+export default function AuthLayout() {
+  return <Stack screenOptions={{ headerShown: true }} />;
+}
+`,
+    },
+    {
+      path: "app/(auth)/login.tsx",
+      content: `import { View, Text } from "react-native";
+
+export default function Login() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <Text>Login (stub)</Text>
+    </View>
+  );
+}
+`,
+    },
+    {
+      path: "README.md",
+      content: `# Dropify Mobile (Generated)
+
+This is a minimal generated scaffold artifact for project: ${projectId}
+
+## Run
+- pnpm i
+- cd apps/mobile
+- npx expo start
+`,
+    },
+  ];
+}
+
+async function buildZipArtifact(files: { path: string; content: string }[]) {
+  const zip = new JSZip();
+  for (const f of files) zip.file(f.path, f.content);
+  return await zip.generateAsync({ type: "uint8array" });
+}
 Deno.serve(async (req) => {
   try {
     const url = Deno.env.get("SUPABASE_URL") ?? "";
@@ -117,6 +182,34 @@ Deno.serve(async (req) => {
     // Attach codegen plan for codegen jobs
     if ((job_type ?? jobRes.data.job_type) === "codegen") {
       output.codegen_plan = makeExpoRouterPlan(project_id, routes, model);
+      // Materialize minimal scaffold as a downloadable ZIP artifact (MVP)
+      const files = makeScaffoldFiles(project_id);
+      const zipBytes = await buildZipArtifact(files);
+
+      const bucket = "dropify-artifacts";
+      const objectPath = `${project_id}/${job_id}/artifact.zip`;
+
+      const uploadRes = await supabase.storage
+        .from(bucket)
+        .upload(objectPath, new Blob([zipBytes], { type: "application/zip" }), {
+          contentType: "application/zip",
+          upsert: true,
+        });
+
+      if (uploadRes.error) {
+        output.warnings.push(`artifact upload failed: ${uploadRes.error.message}`);
+      } else {
+        output.artifact = { bucket, path: objectPath };
+
+        // Create a signed URL (service-role) so UI can download without storage auth headaches
+        const signed2 = await supabase.storage.from(bucket).createSignedUrl(objectPath, 60 * 60); // 60 minutes
+        if (signed2.error) {
+          output.warnings.push(`artifact signed url failed: ${signed2.error.message}`);
+        } else {
+          output.artifact_signed_url = signed2.data?.signedUrl ?? null;
+        }
+
+        await supabase.from("jobs").update({ artifact_bucket: bucket, artifact_path: objectPath }).eq("id", job_id);      }
       output.next_tasks = [
         "Materialize scaffold files in a dedicated repo folder (app/) inside this monorepo OR generate a downloadable zip",
         "Generate app/_layout.tsx + app/index.tsx content from routes.json",
@@ -146,3 +239,6 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+
+
