@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export default function NewProjectPage() {
@@ -41,7 +41,7 @@ export default function NewProjectPage() {
       redirect(`/support?err=${encodeURIComponent("Create failed: missing id from insert result")}`);
     }
 
-    redirect(`/project/${data.id}`);
+    redirect(`/project?id=${encodeURIComponent(data.id)}`);
   }
 
   return (

@@ -8,10 +8,10 @@ export default async function ProjectsPage() {
   if (userErr) redirect(`/support?err=${encodeURIComponent(`Auth error: ${userErr.message}`)}`);
   if (!userData?.user) redirect("/login");
 
-  const { data: projects, error } = await supabase
-    .from("projects")
-    .select("id,name,description,created_at,updated_at")
-    .order("created_at", { ascending: false });
+const { data: projects, error } = await supabase
+  .from("projects")
+  .select("id,name,description,created_at,updated_at")
+  .order("created_at", { ascending: false });
 
   if (error) redirect(`/support?err=${encodeURIComponent(`Projects fetch failed: ${error.message}`)}`);
 
