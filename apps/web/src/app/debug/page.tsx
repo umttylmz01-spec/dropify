@@ -4,58 +4,37 @@ export default async function DebugPage() {
   const supabase = await createClient();
 
   const { data: userData, error: userErr } = await supabase.auth.getUser();
-  const user = userData?.user ?? null;
 
-  // RLS / DB testi: kendi projelerini say (anon ise hata beklenir)
-  const { count, error: countErr } = await supabase
-    .from("projects")
-    .select("id", { count: "exact", head: true });
+  let dbOk = false;
+  let dbErr: string | null = null;
+  let count: number | null = null;
+
+  if (userData?.user) {
+    const res = await supabase.from("projects").select("id", { count: "exact", head: true });
+    if (res.error) {
+      dbOk = false;
+      dbErr = res.error.message;
+    } else {
+      dbOk = true;
+      count = res.count ?? null;
+    }
+  }
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-      <h1>Debug / Healthcheck</h1>
+    <main style={{ maxWidth: 900, margin: "24px auto", padding: 16 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Debug</h1>
 
-      <section style={{ marginTop: 16 }}>
-        <h2>Auth</h2>
-        <pre style={{ padding: 12, background: "#f6f6f6", overflowX: "auto" }}>
-{JSON.stringify(
-  {
-    ok: !userErr && !!user,
-    error: userErr?.message ?? null,
-    user: user
-      ? { id: user.id, email: user.email, last_sign_in_at: user.last_sign_in_at }
-      : null,
-  },
-  null,
-  2
-)}
-        </pre>
-      </section>
+      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+        <div><b>Auth ok:</b> {String(!!userData?.user)}</div>
+        <div><b>User error:</b> {userErr ? userErr.message : "-"}</div>
+        <div><b>Email:</b> {userData?.user?.email ?? "-"}</div>
+      </div>
 
-      <section style={{ marginTop: 16 }}>
-        <h2>DB / RLS</h2>
-        <pre style={{ padding: 12, background: "#f6f6f6", overflowX: "auto" }}>
-{JSON.stringify(
-  {
-    ok: !countErr,
-    error: countErr?.message ?? null,
-    projects_count_visible_to_user: count ?? null,
-    note:
-      "If logged out, expect an error. If logged in and RLS is correct, you should only see your own projects counted.",
-  },
-  null,
-  2
-)}
-        </pre>
-      </section>
-
-      <section style={{ marginTop: 16 }}>
-        <h2>Tips</h2>
-        <ul>
-          <li>If Auth ok=false: check magic link callback + cookies.</li>
-          <li>If DB ok=false when logged in: check RLS policies on projects.</li>
-        </ul>
-      </section>
+      <div style={{ marginTop: 12, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+        <div><b>DB ok:</b> {userData?.user ? String(dbOk) : "(login required)"}</div>
+        <div><b>DB error:</b> {dbErr ?? "-"}</div>
+        <div><b>projects count (visible to user):</b> {count ?? "-"}</div>
+      </div>
     </main>
   );
 }

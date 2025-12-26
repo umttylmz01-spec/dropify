@@ -1,0 +1,10 @@
+﻿          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button
+              type="submit"
+              formAction={createJob.bind(null, project.id, "codegen")}
+              style={{ padding: "8px 12px" }}
+            >
+              Create Codegen Job
+            </button>
+            <a href="/jobs" style={{ opacity: 0.8 }}>View Jobs</a>
+          </div>

@@ -1,72 +1,60 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 export default function SupportPage() {
   const sp = useSearchParams();
-  const [copied, setCopied] = useState(false);
+  const err = sp.get("err") ?? "No error message provided.";
 
-  const err = sp.get("err") ?? "Unknown error";
-  const error_code = sp.get("error_code");
-  const error_description = sp.get("error_description");
+  const [clientTime, setClientTime] = useState<string>("(loading)");
+  const [clientUrl, setClientUrl] = useState<string>("(loading)");
+
+  useEffect(() => {
+    setClientTime(new Date().toISOString());
+    setClientUrl(window.location.href);
+  }, []);
 
   const report = useMemo(() => {
-    const lines: string[] = [];
-    lines.push("DROPIFY SUPPORT REPORT");
-    lines.push(`time: ${new Date().toISOString()}`);
-    lines.push(`url: ${typeof window !== "undefined" ? window.location.href : ""}`);
-    lines.push("");
-    lines.push("error:");
-    lines.push(err);
-
-    if (error_code) lines.push(`error_code: ${error_code}`);
-    if (error_description) lines.push(`error_description: ${error_description}`);
-
-    lines.push("");
-    lines.push("next steps:");
-    lines.push("- Open /debug and screenshot Auth + DB sections");
-    lines.push("- If auth issues: verify callback, cookies, redirect URLs");
-    lines.push("- If DB issues: verify RLS policies");
-
-    return lines.join("\n");
-  }, [err, error_code, error_description]);
+    return [
+      "DROPIFY — SUPPORT REPORT",
+      `time_utc: ${clientTime}`,
+      `url: ${clientUrl}`,
+      `err: ${err}`,
+      "",
+      "Next steps:",
+      "1) Open /debug and verify Auth/DB ok.",
+      "2) If this is a project page redirect, copy the full error text above.",
+    ].join("\n");
+  }, [clientTime, clientUrl, err]);
 
   async function copyReport() {
-    try {
-      await navigator.clipboard.writeText(report);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // fallback: do nothing
-    }
+    await navigator.clipboard.writeText(report);
+    alert("Copied.");
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif", maxWidth: 900 }}>
-      <h1>Support</h1>
-      <p style={{ marginTop: 6, opacity: 0.8 }}>
-        If something broke, copy the report below and send it (with a screenshot of /debug).
-      </p>
+    <main style={{ maxWidth: 900, margin: "24px auto", padding: 16 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Support</h1>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-        <a href="/debug" style={{ padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, textDecoration: "none" }}>
-          Open Debug
-        </a>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontWeight: 700 }}>Error</div>
+        <div style={{ whiteSpace: "pre-wrap" }}>{err}</div>
+      </div>
 
-        <button
-          onClick={copyReport}
-          style={{ padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}
-        >
-          {copied ? "Copied" : "Copy report"}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button onClick={copyReport} style={{ padding: "8px 12px" }}>
+          Copy report
         </button>
-
-        <a href="/" style={{ padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, textDecoration: "none" }}>
-          Home
+        <a href="/debug" style={{ padding: "8px 12px", display: "inline-block" }}>
+          Open /debug
+        </a>
+        <a href="/projects" style={{ padding: "8px 12px", display: "inline-block" }}>
+          Back to /projects
         </a>
       </div>
 
-      <pre style={{ marginTop: 16, padding: 12, background: "#f6f6f6", borderRadius: 10, overflowX: "auto" }}>
+      <pre style={{ background: "#111", color: "#eee", padding: 12, borderRadius: 8, overflow: "auto" }}>
         {report}
       </pre>
     </main>

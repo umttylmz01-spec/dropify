@@ -5,55 +5,64 @@ export default function NewProjectPage() {
   async function createProject(formData: FormData) {
     "use server";
 
-    const name = String(formData.get("name") || "").trim();
-    const description = String(formData.get("description") || "").trim();
-
-    if (!name) return;
-
     const supabase = await createClient();
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
 
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) redirect("/login");
+    if (userErr) {
+      redirect(`/support?err=${encodeURIComponent(`Auth error: ${userErr.message}`)}`);
+    }
+    if (!userData?.user) {
+      redirect("/login");
+    }
+
+    const name = String(formData.get("name") ?? "").trim();
+    const description = String(formData.get("description") ?? "").trim();
+
+    if (!name) {
+      redirect(`/support?err=${encodeURIComponent("Validation: name is required")}`);
+    }
 
     const { data, error } = await supabase
       .from("projects")
       .insert({
-        owner_id: user.id,
+        owner_id: userData.user.id,
         name,
-        description: description || null,
+        description,
         config: {},
       })
       .select("id")
       .single();
 
-    if (error || !data?.id) {
-      redirect(`/support?err=${encodeURIComponent(error?.message || "Insert failed")}`);
+    if (error) {
+      redirect(`/support?err=${encodeURIComponent(`Create failed: ${error.message}`)}`);
+    }
+
+    if (!data?.id) {
+      redirect(`/support?err=${encodeURIComponent("Create failed: missing id from insert result")}`);
     }
 
     redirect(`/project/${data.id}`);
   }
 
   return (
-    <main style={{ padding: 24 }}>
-      <h1>New Project</h1>
+    <main style={{ maxWidth: 900, margin: "24px auto", padding: 16 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>New Project</h1>
 
-      <form action={createProject} style={{ display: "grid", gap: 12, maxWidth: 520 }}>
-        <label>
-          Name
-          <input name="name" placeholder="My first Dropify app" style={{ width: "100%", padding: 8 }} />
+      <form action={createProject} style={{ display: "grid", gap: 10 }}>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Name</span>
+          <input name="name" style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6 }} />
         </label>
 
-        <label>
-          Description
-          <textarea name="description" placeholder="Optional" style={{ width: "100%", padding: 8, minHeight: 96 }} />
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Description</span>
+          <textarea name="description" rows={4} style={{ padding: 8, border: "1px solid #ccc", borderRadius: 6 }} />
         </label>
 
-        <button type="submit" style={{ padding: 10 }}>
+        <button type="submit" style={{ padding: "8px 12px" }}>
           Create
         </button>
       </form>
     </main>
   );
 }
-
-
